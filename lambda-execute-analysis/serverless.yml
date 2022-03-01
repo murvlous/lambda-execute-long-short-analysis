@@ -1,0 +1,41 @@
+# Welcome to serverless. Read the docs
+# https://serverless.com/framework/docs/
+
+# Serverless.yml is the configuration the CLI
+# uses to deploy your code to your provider of choice
+
+# The `service` block is the name of the service
+service: lambda-execute-analysis
+
+frameworkVersion: '3'
+
+# The `provider` block defines where your service will be deployed
+custom:
+  topic: AppAlissonAviso
+provider:
+  name: aws
+  runtime: nodejs12.x
+  region: sa-east-1
+  stackName: appAlisson
+  iam:
+    role:
+      name: app-alisson-lambda-role
+      statements:
+        - Effect: "Allow"
+          Action:
+            - "sns:*" 
+          Resource: 
+            - "arn:aws:sns:sa-east-1:196439546156:${self:custom.topic}"
+
+# The `functions` block defines what code to deploy
+functions:
+  processRule:
+    handler: handler.handler
+    # The `events` block defines how to trigger the handler.helloWorld code
+    events:
+      - http:
+          path: processRule
+          method: get
+          cors: true
+    environment:
+      Topic: ${self:custom.topic} 
