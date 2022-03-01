@@ -65,14 +65,14 @@ exports.handler = async (event, context, callback) => {
     sinalEntradaLongPetr3 = true
     const message = `
     Avaliando Operação Long Petr3 x Short Petr4
-    Preco PETR4 = ${PETR4_price}
-    Preco PETR3 = ${PETR3_price}
+    Preço PETR4 = ${PETR4_price}
+    Preço PETR3 = ${PETR3_price}
     Fator PETR4/PETR3 calculado = ${PETR4_price / PETR3_price}
-    Fator PETR4/PETR3 configurado <= 1.2850
+    Configurado para ativar se fator <= 1.2850
     Sinal de Entrada ATIVADO
     `
 
-    await publishSnsTopic('Entrada Long Petr3 x Short Petr4', message)
+    await publishSnsTopic('Sinal de ENTRADA Long Petr3 x Short Petr4', message)
   }
 
   let sinalSaidaLongPetr3 = false;
