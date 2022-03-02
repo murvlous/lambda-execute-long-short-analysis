@@ -6,13 +6,56 @@ const aws = require('aws-sdk')
 const sns = new aws.SNS({ region: 'sa-east-1' })
 const ddb = new aws.DynamoDB({apiVersion: '2012-08-10', region: 'sa-east-1'});
 
-async function publishSnsTopic (subject, data) {
+const publishSnsTopic = async (subject, data) => {
   const params = {
     Subject: subject,
     Message: data,
     TopicArn: `arn:aws:sns:sa-east-1:196439546156:${env.Topic}`
   }
   return sns.publish(params).promise()
+}
+
+const buildTextMessage = (ativo_long, ativo_short, ativo_long_price, ativo_short_price, ativo_long_horario, ativo_short_horario, fator_calculado, flag_entrada) => {
+  return `
+    Avaliação operação Long ${ativo_long} x Short ${ativo_short}
+    Preço ${ativo_long} = ${ativo_long_price}
+    Horário de atualização ${ativo_long} = ${ativo_long_horario}
+    Preço ${ativo_short} = ${ativo_short_price}
+    Horário de atualização ${ativo_short} = ${ativo_short_horario}
+    Fator calculado = ${fator_calculado}
+    Sinal de ${flag_entrada ? 'entrada' : 'saída'} ATIVADO
+    `
+}
+
+const marca_aviso_efetuado = (id_dynamodb) => {
+
+  var params = {
+    TableName: 'mark47_ativos_monitorados',
+    Key:{
+        "id": 
+          {
+            S: id_dynamodb
+          }
+    },
+    UpdateExpression: "set flg_acionou_aviso_entrada = :x",
+    ExpressionAttributeValues:{
+        ":x": 
+        {
+          BOOL: true
+        }
+    },
+    ReturnValues:"UPDATED_NEW"
+  };
+
+  console.log("Updating the item...")
+  ddb.updateItem(params, function(err, data) {
+      if (err) {
+          console.error("Unable to update item. Error JSON:", JSON.stringify(err, null, 2));
+      } else {
+          console.log("UpdateItem succeeded:", JSON.stringify(data, null, 2));
+      }
+  })
+
 }
 
 exports.handler = async (event, context, callback) => {
@@ -27,114 +70,96 @@ exports.handler = async (event, context, callback) => {
 
   ddb.scan(paramsConsultaDb, function (err, data) {
     if (err) {
+
       console.log("Error on retrieving data from mark47_ativos_monitorados DynamoDb table", err);
+
     } else {
+      
       console.log("Success on retrieving data from mark47_ativos_monitorados DynamoDb table");
-      data.Items.forEach(function (element, index, array) {
+
+      data.Items.forEach(async function (element, index, array) {
+
+        console.log("Imprimindo item conforme recuperado da base");
         console.log(element);
+
+        const id_dynamodb = element.id.S
+        const ativo_long = element.ativo_long.S
+        const ativo_short = element.ativo_short.S
+        const flg_acionou_aviso_entrada = element.flg_acionou_aviso_entrada.BOOL
+        const flg_entrada_realizada = element.flg_entrada_realizada.BOOL
+
+        const ativo_long_response_consulta = await fetch(`https://api.hgbrasil.com/finance/stock_price?key=dcf12d06&symbol=${ativo_long}`);
+        const ativo_long_data = await ativo_long_response_consulta.json();
+        const ativo_long_price = ativo_long_data.results[ativo_long].price
+        const ativo_long_horario = ativo_long_data.results[ativo_long].updated_at
+
+        const ativo_short_response_consulta = await fetch(`https://api.hgbrasil.com/finance/stock_price?key=dcf12d06&symbol=${ativo_short}`);
+        const ativo_short_data = await ativo_short_response_consulta.json();
+        const ativo_short_price = ativo_short_data.results[ativo_short].price
+        const ativo_short_horario = ativo_short_data.results[ativo_short].updated_at
+
+        console.log('Preço ativo long: ', ativo_long_price)
+        console.log('Horário de atualização do ativo long: ', ativo_long_horario)
+        console.log('Preço ativo short: ', ativo_short_price)
+        console.log('Horário de atualização do ativo short: ', ativo_short_horario)
+
+        const flg_efetuar_divisao_inversa = element.flg_efetuar_divisao_inversa.BOOL
+        const fator_entrada = element.fator_entrada.N
+        const fator_saida = element.fator_saida.N
+
+        let sinalEntrada, sinalSaida, fator_calculado
+
+        if (flg_efetuar_divisao_inversa == false)
+        {
+          fator_calculado = ativo_long_price/ativo_short_price
+          console.log('Fator Calculado: ', fator_calculado)
+
+          //Avaliando entrada
+          sinalEntrada = fator_calculado <= fator_entrada
+          sinalSaida = fator_calculado >= fator_saida
+
+        } else {
+          fator_calculado = ativo_short_price/ativo_long_price
+          console.log('Fator Calculado: ', fator_calculado)
+
+          //Avaliando entrada
+          sinalEntrada = fator_calculado >= fator_entrada
+          sinalSaida = fator_calculado <= fator_saida
+        }
+
+        console.log('Sinal de entrada: ', sinalEntrada)
+        console.log('Sinal de saída: ', sinalSaida)
+        
+        //Entrada execução normal (10 em 10 min atualmente)
+        if (sinalEntrada && flg_acionou_aviso_entrada == false ) {
+          console.log(`Sinal de ENTRADA Long ${ativo_long} x Short ${ativo_short} ATIVADO`)
+          const textMessage = buildTextMessage(ativo_long, ativo_short, ativo_long_price, ativo_short_price, ativo_long_horario, ativo_short_horario, fator_calculado, true)
+          await publishSnsTopic(`Sinal de ENTRADA Long ${ativo_long} x Short ${ativo_short} ATIVADO`, textMessage)
+          marca_aviso_efetuado(id_dynamodb)
+        }
+
+        //Entrada execução reforço 
+        if (sinalEntrada && flg_dose_reforco) {
+          console.log(`Sinal de ENTRADA REFORÇO Long ${ativo_long} x Short ${ativo_short} ATIVADO`)
+          const textMessage = buildTextMessage(ativo_long, ativo_short, ativo_long_price, ativo_short_price, ativo_long_horario, ativo_short_horario, fator_calculado, true)
+          await publishSnsTopic(`Sinal de ENTRADA REFORÇO Long ${ativo_long} x Short ${ativo_short} ATIVADO`, textMessage)
+        }
+
+        if (sinalSaida && flg_entrada_realizada) {
+          console.log(`Sinal de SAÍDA Long ${ativo_long} x Short ${ativo_short} ATIVADO`)
+          const textMessage = buildTextMessage(ativo_long, ativo_short, ativo_long_price, ativo_short_price, ativo_long_horario, ativo_short_horario, fator_calculado, false)
+          await publishSnsTopic(`Sinal de SAÍDA Long ${ativo_long} x Short ${ativo_short} ATIVADO`, textMessage)
+        }
+
       });
     }
   });
-
-  const PETR4_response = await fetch('https://api.hgbrasil.com/finance/stock_price?key=dcf12d06&symbol=PETR4');
-  const PETR4_data = await PETR4_response.json();
-  const PETR4_price = PETR4_data.results.PETR4.price
-  const PETR4_horario = PETR4_data.results.PETR4.updated_at
-
-  const PETR3_response = await fetch('https://api.hgbrasil.com/finance/stock_price?key=dcf12d06&symbol=PETR3');
-  const PETR3_data = await PETR3_response.json();
-  const PETR3_price = PETR3_data.results.PETR3.price
-  const PETR3_horario = PETR3_data.results.PETR3.updated_at
-
-  //Avaliando Long Petr4 x Short Petr3
-
-  let sinalEntradaLongPetr4 = false;
-  if (PETR4_price/PETR3_price <= 0.9060) {
-    sinalEntradaLongPetr4 = true
-    const message = {
-      body: JSON.stringify({
-        message: 'Avaliando Operação Long Petr4 x Short Petr3',
-        preco_PETR4: PETR4_price,
-        preco_PETR3: PETR3_price,
-        fator_PETR4_PETR3: PETR4_price / PETR3_price,
-        sinalEntradaLongPetr4
-      })
-    }
-    
-    await publishSnsTopic('Entrada Long Petr4 x Short Petr3', message)
-  }
-
-  let sinalSaidaLongPetr4 = false;
-  if (PETR4_price/PETR3_price >= 0.9350) {
-    sinalSaidaLongPetr4 = true
-    const message = {
-      body: JSON.stringify({
-        message: 'Avaliando Operação Long Petr4 x Short Petr3',
-        preco_PETR4: PETR4_price,
-        preco_PETR3: PETR3_price,
-        fator_PETR4_PETR3: PETR4_price / PETR3_price,
-        sinalSaidaLongPetr4
-      })
-    }
-    
-    await publishSnsTopic('Saída Long Petr4 x Short Petr3', message)
-  }
-
-  //Avaliando Long Petr3 x Short Petr4
-
-  let sinalEntradaLongPetr3 = false;
-  if (PETR4_price/PETR3_price <= 1.2850) {
-    sinalEntradaLongPetr3 = true
-    const message = `
-    Avaliando Operação Long Petr3 x Short Petr4
-    Preço PETR4 = ${PETR4_price}
-    Horário de atualização PETR4 = ${PETR4_horario}
-    Preço PETR3 = ${PETR3_price}
-    Horário de atualização PETR3 = ${PETR3_horario}
-    Fator PETR4/PETR3 calculado = ${PETR4_price / PETR3_price}
-    Configurado para ativar se fator <= 1.2850
-    Sinal de Entrada ATIVADO
-    `
-
-    await publishSnsTopic('Sinal de ENTRADA Long Petr3 x Short Petr4', message)
-  }
-
-  let sinalSaidaLongPetr3 = false;
-  if (PETR4_price/PETR3_price >= 1.0000) {
-    sinalSaidaLongPetr3 = true
-    const message = {
-      body: JSON.stringify({
-        message: 'Avaliando Operação Long Petr3 x Short Petr4',
-        preco_PETR4: PETR4_price,
-        preco_PETR3: PETR3_price,
-        fator_PETR4_PETR3: PETR4_price / PETR3_price,
-        sinalSaidaLongPetr3
-      })
-    }
-    
-    await publishSnsTopic('Saída Long Petr3 x Short Petr4', message)
-  }
 
   const response = {
     statusCode: 200,
     headers: {
       'Access-Control-Allow-Origin': '*', // Required for CORS support to work
-    },
-    body: JSON.stringify({
-      message: 'Avaliando Operação Long Petr4 x Short Petr3',
-      preco_PETR4: PETR4_price,
-      preco_PETR3: PETR3_price,
-      fator_PETR4_PETR3: PETR4_price / PETR3_price,
-      sinalEntradaLongPetr4,
-      sinalSaidaLongPetr4,
-
-      message2: 'Avaliando Operação Long Petr3 x Short Petr4',
-      preco_PETR3_: PETR3_price,
-      preco_PETR4_: PETR4_price,
-      fator_PETR4_PETR3_: PETR4_price / PETR3_price,
-      sinalEntradaLongPetr3,
-      sinalSaidaLongPetr3,
-    }),
+    }
   };
 
   callback(null, response);
