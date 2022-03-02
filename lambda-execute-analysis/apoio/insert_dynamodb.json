@@ -1,20 +1,26 @@
 {
- "id": {
-  "S": "1"
- },
- "ativo_long": {
-  "S": "PETR4"
- },
- "ativo_short": {
-  "S": "PETR3"
- },
- "fator_entrada": {
-  "N": "0.906"
- },
- "fator_saida": {
-  "N": "0.935"
- },
- "avaliacao_divisao_inversa": {
-  "BOOL": false
- }
+  "id": {
+    "S": "1"
+  },
+  "ativo_long": {
+    "S": "PETR4"
+  },
+  "ativo_short": {
+    "S": "PETR3"
+  },
+  "fator_entrada": {
+    "N": "0.906"
+  },
+  "fator_saida": {
+    "N": "0.935"
+  },
+  "flg_efetuar_divisao_inversa": {
+    "BOOL": false
+  },
+  "flg_acionou_aviso_entrada": {
+    "BOOL": false
+  },
+  "flg_entrada_realizada": {
+    "BOOL": false
+  }
 }
