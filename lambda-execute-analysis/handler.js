@@ -16,6 +16,8 @@ async function publishSnsTopic (subject, data) {
 
 exports.handler = async (event, context, callback) => {
 
+  console.log(event)
+
   const PETR4_response = await fetch('https://api.hgbrasil.com/finance/stock_price?key=dcf12d06&symbol=PETR4');
   const PETR4_data = await PETR4_response.json();
   const PETR4_price = PETR4_data.results.PETR4.price

@@ -11,7 +11,7 @@ frameworkVersion: '3'
 
 # The `provider` block defines where your service will be deployed
 custom:
-  topic: AppAlissonAviso
+  topic: topic_mark47_avisos
 provider:
   name: aws
   runtime: nodejs12.x
