@@ -31,7 +31,7 @@ provider:
           Action:
             - "dynamodb:*" 
           Resource: 
-            - " arn:aws:dynamodb:sa-east-1:196439546156:table/${self:custom.dynamodbtable}"
+            - "arn:aws:dynamodb:sa-east-1:196439546156:table/${self:custom.dynamodbtable}"
 
 # The `functions` block defines what code to deploy
 functions:
@@ -44,5 +44,5 @@ functions:
           method: get
           cors: true
     environment:
-      SNSTopic: ${self:custom.topic} 
+      SNSTopic: ${self:custom.snstopic} 
       DynamodbTable: ${self:custom.dynamodbtable} 
