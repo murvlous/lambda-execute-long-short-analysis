@@ -10,7 +10,7 @@ const publishSnsTopic = async (subject, data) => {
   const params = {
     Subject: subject,
     Message: data,
-    TopicArn: `arn:aws:sns:sa-east-1:196439546156:${env.Topic}`
+    TopicArn: `arn:aws:sns:sa-east-1:196439546156:${env.SNSTopic}`
   }
   return sns.publish(params).promise()
 }
@@ -30,7 +30,7 @@ const buildTextMessage = (ativo_long, ativo_short, ativo_long_price, ativo_short
 const marca_aviso_efetuado = (id_dynamodb) => {
 
   var params = {
-    TableName: 'mark47_ativos_monitorados',
+    TableName: env.DynamodbTable,
     Key:{
         "id": 
           {
@@ -65,17 +65,17 @@ exports.handler = async (event, context, callback) => {
   const flg_dose_reforco =  event.flg_dose_reforco || false
 
   const paramsConsultaDb = {
-    TableName: "mark47_ativos_monitorados",
+    TableName: env.DynamodbTable,
   };
 
   ddb.scan(paramsConsultaDb, function (err, data) {
     if (err) {
 
-      console.log("Error on retrieving data from mark47_ativos_monitorados DynamoDb table", err);
+      console.log(`Error on retrieving data from ${env.DynamodbTable} DynamoDb table`, err);
 
     } else {
       
-      console.log("Success on retrieving data from mark47_ativos_monitorados DynamoDb table");
+      console.log(`Success on retrieving data from ${env.DynamodbTable} DynamoDb table`);
 
       data.Items.forEach(async function (element, index, array) {
 

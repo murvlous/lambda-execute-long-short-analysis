@@ -11,7 +11,8 @@ frameworkVersion: '3'
 
 # The `provider` block defines where your service will be deployed
 custom:
-  topic: topic_mark47_avisos
+  snstopic: topic_mark47_avisos
+  dynamodbtable: mark47_ativos_monitorados
 provider:
   name: aws
   runtime: nodejs12.x
@@ -19,13 +20,18 @@ provider:
   stackName: appAlisson
   iam:
     role:
-      name: app-alisson-lambda-role
+      name: app-mark47-lambda-role
       statements:
         - Effect: "Allow"
           Action:
             - "sns:*" 
           Resource: 
-            - "arn:aws:sns:sa-east-1:196439546156:${self:custom.topic}"
+            - "arn:aws:sns:sa-east-1:196439546156:${self:custom.snstopic}"
+        - Effect: "Allow"
+          Action:
+            - "dynamodb:*" 
+          Resource: 
+            - " arn:aws:dynamodb:sa-east-1:196439546156:table/${self:custom.dynamodbtable}"
 
 # The `functions` block defines what code to deploy
 functions:
@@ -38,4 +44,5 @@ functions:
           method: get
           cors: true
     environment:
-      Topic: ${self:custom.topic} 
+      SNSTopic: ${self:custom.topic} 
+      DynamodbTable: ${self:custom.dynamodbtable} 

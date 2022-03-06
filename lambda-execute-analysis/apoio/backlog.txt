@@ -1,0 +1,20 @@
+TO-DO:
+
+- Calcular qtd papeis operacao
+    -> variavel montante via env
+
+- Desprezar ativos que estiverem com horario de captura acima de 30 min
+    -> variavel de tempo via env
+
+- Desprezar operacaoes que estiverem com horario de captura entre ativos acima de 20 min
+    -> variavel de tempo via env
+
+- Monitamentos: tirar métricas de várias coisas que importam
+    -> qtd de vezes que desprezou uma monitação por conta do tempo de captura
+    -> qtd de vezes que desprezou uma monitação por da diferença no tempo de captura entre os ativos
+
+- Usar a key da API de consulta (api.hgbrasil) via secrets manager
+
+
+IMPLEMENTADAS:
+
